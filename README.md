@@ -21,4 +21,4 @@ Tracked as [issues #1–#9](../../issues), one per phase: Foundations → Data l
 
 ## Stack (short version)
 
-TypeScript monorepo (pnpm): Fastify + Drizzle API, Node ingestion worker, Expo (React Native) app. Postgres + Redis on Railway. Expo Push for notifications. See [docs/stack.md](docs/stack.md) for the reasoning.
+TypeScript monorepo (pnpm): Express + Drizzle API, Node ingestion worker, Expo (React Native) app. Postgres + Redis on Railway. Expo Push for notifications. See [docs/stack.md](docs/stack.md) for the reasoning.

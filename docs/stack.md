@@ -9,7 +9,7 @@ Relates to: Phase 0 (issue #1). Constraint: solo dev, ship fast, one language ev
 |---|---|---|
 | Language | TypeScript everywhere | one language across app, API, worker, shared types |
 | Monorepo | pnpm workspaces | `apps/api`, `apps/worker`, `apps/mobile`, `packages/shared` |
-| Backend framework | Fastify | fast, TS-first, schema validation built in (JSON Schema → matches our API spec envelope) |
+| Backend framework | Express | familiar, massive ecosystem, flexible middleware; Zod handles request validation via packages/shared schemas |
 | ORM / migrations | Drizzle | SQL-first, thin, migrations included; our schema is hand-designed relational so closeness to SQL beats magic. (Prisma is the acceptable alternative if DX is preferred) |
 | Datastores | Postgres 16 + Redis 7 | per architecture doc |
 | Mobile | Expo (managed) + EAS Build | fastest path for a solo dev: no native Xcode/Gradle wrangling, OTA updates, EAS handles signing/TestFlight |
@@ -53,6 +53,6 @@ hooply/
 
 1. pnpm workspace + Biome + tsconfig base + GitHub Actions (typecheck/lint/test)
 2. `docker-compose.yml` (Postgres + Redis) and Drizzle schema from docs/data-model.md, first migration
-3. Fastify skeleton with `/v1/leagues` stub returning envelope format
+3. Express skeleton with `/v1/leagues` stub returning envelope format
 4. Expo app skeleton with tab navigation matching docs/screens.md
 5. Provider spike scripts (`apps/worker/spikes/`) hitting both providers' free tiers — answers the box-score question in docs/provider-decision.md

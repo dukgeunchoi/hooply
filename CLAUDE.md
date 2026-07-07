@@ -22,7 +22,7 @@ Progress is tracked as GitHub issues #1–#9 (one per roadmap phase). Work throu
 
 ## Stack
 
-TypeScript everywhere. pnpm workspaces: `apps/api` (Fastify + Drizzle), `apps/worker` (ingestion, node-cron), `apps/mobile` (Expo + Expo Router + TanStack Query + Zustand/MMKV), `packages/shared` (zod schemas / API types). Postgres 16 + Redis 7 (local: docker-compose). Hosting: Railway. Push: Expo Push Service. Lint/format: Biome. Tests: Vitest (+ Supertest for API).
+TypeScript everywhere. pnpm workspaces: `apps/api` (Express + Drizzle), `apps/worker` (ingestion, node-cron), `apps/mobile` (Expo + Expo Router + TanStack Query + Zustand/MMKV), `packages/shared` (zod schemas / API types). Postgres 16 + Redis 7 (local: docker-compose). Hosting: Railway. Push: Expo Push Service. Lint/format: Biome. Tests: Vitest (+ Supertest for API).
 
 ## Conventions
 
@@ -31,3 +31,17 @@ TypeScript everywhere. pnpm workspaces: `apps/api` (Fastify + Drizzle), `apps/wo
 - Timestamps UTC ISO 8601; client localizes
 - Store `seconds_played`, render minutes; `period_scores` is jsonb arrays
 - Commit style: `feat:`, `fix:`, `docs:`, `chore:` prefixes
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`gh` CLI); external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
