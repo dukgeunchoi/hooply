@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783506519259,
+      "tag": "0000_strange_bastion",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783506528255,
+      "tag": "0001_trgm_search_indexes",
+      "breakpoints": true
+    }
+  ]
+}

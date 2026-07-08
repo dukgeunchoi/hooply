@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.expo/
+.turbo/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+coverage/
+.vscode/*
+!.vscode/extensions.json
