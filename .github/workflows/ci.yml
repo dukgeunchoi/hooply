@@ -8,6 +8,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: hooply
+          POSTGRES_PASSWORD: hooply
+          POSTGRES_DB: hooply
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hooply"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://hooply:hooply@localhost:5432/hooply
     steps:
       - uses: actions/checkout@v4
 
@@ -23,5 +39,7 @@ jobs:
       - run: pnpm run typecheck
 
       - run: pnpm run lint
+
+      - run: pnpm run db:migrate
 
       - run: pnpm run test
