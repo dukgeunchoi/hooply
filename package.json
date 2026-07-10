@@ -11,8 +11,8 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "test": "pnpm -r run test",
-    "db:generate": "pnpm --filter @hooply/api run db:generate",
-    "db:migrate": "pnpm --filter @hooply/api run db:migrate"
+    "db:generate": "pnpm --filter @hooply/db run db:generate",
+    "db:migrate": "pnpm --filter @hooply/db run db:migrate"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

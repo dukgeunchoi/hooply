@@ -1,0 +1,8 @@
+import { useLocalSearchParams } from "expo-router";
+
+import { PlaceholderScreen } from "@/components/PlaceholderScreen";
+
+export default function LeagueHubScreen() {
+  const { name } = useLocalSearchParams<{ id: string; name?: string }>();
+  return <PlaceholderScreen title={name ?? "League Hub"} />;
+}

@@ -34,13 +34,14 @@ Device 1─* Favorite
 | logo_url | text | |
 | priority | int | sort order in app (NBA first) |
 | is_active | bool | curated launch set = true |
+| updated_at | timestamptz | last ingestion write; backs `meta.delayed` on `GET /v1/leagues` |
 
 ### season
 | column | type | notes |
 |---|---|---|
 | id | uuid PK | |
 | league_id | FK league | |
-| provider_ref | text | |
+| provider_ref | text | unique with `league_id` |
 | label | text | "2026-27" |
 | starts_on / ends_on | date | |
 | is_current | bool | one per league |

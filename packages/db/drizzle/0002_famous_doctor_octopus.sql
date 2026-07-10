@@ -1,0 +1,2 @@
+ALTER TABLE "league" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "season_league_id_provider_ref_unique" ON "season" USING btree ("league_id","provider_ref");

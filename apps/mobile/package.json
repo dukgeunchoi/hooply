@@ -3,6 +3,8 @@
   "main": "expo-router/entry",
   "version": "0.1.0",
   "dependencies": {
+    "@hooply/shared": "workspace:*",
+    "@tanstack/react-query": "^5.59.0",
     "expo": "~57.0.4",
     "expo-constants": "~57.0.3",
     "expo-font": "~57.0.0",
@@ -19,7 +21,8 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.0"
+    "react-native-worklets": "0.10.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

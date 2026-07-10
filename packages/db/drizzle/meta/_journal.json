@@ -15,6 +15,13 @@
       "when": 1783506528255,
       "tag": "0001_trgm_search_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783680903195,
+      "tag": "0002_famous_doctor_octopus",
+      "breakpoints": true
     }
   ]
 }

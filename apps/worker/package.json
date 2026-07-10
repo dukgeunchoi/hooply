@@ -9,7 +9,9 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@hooply/shared": "workspace:*"
+    "@hooply/db": "workspace:*",
+    "@hooply/shared": "workspace:*",
+    "drizzle-orm": "^0.33.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
