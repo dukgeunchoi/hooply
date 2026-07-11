@@ -8,5 +8,9 @@ export default defineConfig({
     env: {
       DATABASE_URL: "postgres://hooply:hooply@localhost:5432/hooply_test",
     },
+    // Test files share one real Postgres database (no per-file schema/tx
+    // isolation), so two files seeding the same provider_ref can collide if
+    // vitest runs them in parallel workers. Run files sequentially instead.
+    fileParallelism: false,
   },
 });

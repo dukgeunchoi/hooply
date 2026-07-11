@@ -15,3 +15,34 @@ export type ApiSportsLeague = {
   country: { name: string | null } | null;
   seasons: ApiSportsSeason[];
 };
+
+export type ApiSportsGameStatus = {
+  long: string;
+  short: string;
+  timer: string | null;
+};
+
+export type ApiSportsGameTeam = {
+  id: number;
+  name: string;
+  logo: string | null;
+};
+
+export type ApiSportsGameScoreLine = {
+  quarter_1: number | null;
+  quarter_2: number | null;
+  quarter_3: number | null;
+  quarter_4: number | null;
+  over_time: number | null;
+  total: number | null;
+};
+
+export type ApiSportsGame = {
+  id: number;
+  date: string;
+  venue: string | null;
+  status: ApiSportsGameStatus;
+  league: { id: number };
+  teams: { home: ApiSportsGameTeam; away: ApiSportsGameTeam };
+  scores: { home: ApiSportsGameScoreLine; away: ApiSportsGameScoreLine };
+};
