@@ -46,3 +46,32 @@ export type ApiSportsGame = {
   teams: { home: ApiSportsGameTeam; away: ApiSportsGameTeam };
   scores: { home: ApiSportsGameScoreLine; away: ApiSportsGameScoreLine };
 };
+
+export type ApiSportsStandingGroup = {
+  // Null for leagues with no conference/group split (e.g. Euroleague, ACB).
+  // When present, API-Sports emits one row per team per grouping axis it
+  // knows about — for NBA that means both a conference-named group
+  // ("Eastern Conference") and a division-named group ("Atlantic") per
+  // team, with nothing but this string distinguishing them.
+  name: string | null;
+};
+
+export type ApiSportsStandingGames = {
+  played: number;
+  win: { total: number; percentage: string };
+  lose: { total: number; percentage: string };
+};
+
+export type ApiSportsStandingPoints = {
+  for: number;
+  against: number;
+};
+
+export type ApiSportsStanding = {
+  position: number;
+  group: ApiSportsStandingGroup;
+  team: ApiSportsGameTeam;
+  games: ApiSportsStandingGames;
+  points: ApiSportsStandingPoints;
+  form: string | null;
+};

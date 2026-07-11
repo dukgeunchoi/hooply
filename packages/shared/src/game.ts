@@ -12,7 +12,7 @@ export const gameStatusSchema = z.enum([
 
 export type GameStatus = z.infer<typeof gameStatusSchema>;
 
-const teamRefSchema = z.object({
+export const teamRefSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   code: z.string().nullable(),
@@ -51,3 +51,7 @@ export type LeagueGames = z.infer<typeof leagueGamesSchema>;
 export const gamesResponseSchema = envelopeSchema(z.array(leagueGamesSchema));
 
 export type GamesResponse = z.infer<typeof gamesResponseSchema>;
+
+export const leagueGamesResponseSchema = envelopeSchema(z.array(gameSchema));
+
+export type LeagueGamesResponse = z.infer<typeof leagueGamesResponseSchema>;

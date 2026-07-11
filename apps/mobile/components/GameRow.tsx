@@ -1,5 +1,5 @@
 import type { Game } from "@hooply/shared";
-import { StyleSheet } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 
 import { Text, View } from "@/components/Themed";
 import { formatTipoff } from "@/lib/dates";
@@ -25,10 +25,10 @@ function statusLabel(game: Game): string {
   }
 }
 
-export function GameRow({ game }: { game: Game }) {
+export function GameRow({ game, onPress }: { game: Game; onPress?: () => void }) {
   const hasScore = game.status !== "scheduled" && game.status !== "postponed";
 
-  return (
+  const row = (
     <View style={styles.row}>
       <Text style={styles.matchup}>
         {teamLabel(game.home.team)}
@@ -40,6 +40,8 @@ export function GameRow({ game }: { game: Game }) {
       <Text style={styles.status}>{statusLabel(game)}</Text>
     </View>
   );
+
+  return onPress ? <Pressable onPress={onPress}>{row}</Pressable> : row;
 }
 
 const styles = StyleSheet.create({

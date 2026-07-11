@@ -1,9 +1,10 @@
-import { db, game, league, season, team } from "@hooply/db";
+import { db, game, league, season } from "@hooply/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { normalizeGame, normalizeTeamStub } from "../normalize/game";
 import { fetchGamesByDate } from "../providers/api-sports/client";
-import type { ApiSportsGame, ApiSportsGameTeam } from "../providers/api-sports/types";
+import type { ApiSportsGame } from "../providers/api-sports/types";
 import { CURATED_LEAGUES } from "./curated-leagues";
+import { upsertTeamStub } from "./teams";
 
 export async function ingestGames(apiKey: string, date: string): Promise<void> {
   const curatedRefs = CURATED_LEAGUES.map((c) => c.providerRef);
@@ -47,8 +48,8 @@ async function upsertGame(raw: ApiSportsGame, leagueId: string, seasonId: string
   const normalized = normalizeGame(raw);
 
   const [homeTeamId, awayTeamId] = await Promise.all([
-    upsertTeamStub(raw.teams.home),
-    upsertTeamStub(raw.teams.away),
+    upsertTeamStub(normalizeTeamStub(raw.teams.home)),
+    upsertTeamStub(normalizeTeamStub(raw.teams.away)),
   ]);
 
   const gameValues = {
@@ -73,20 +74,4 @@ async function upsertGame(raw: ApiSportsGame, leagueId: string, seasonId: string
     .insert(game)
     .values(gameValues)
     .onConflictDoUpdate({ target: [game.provider, game.providerRef], set: gameValues });
-}
-
-// See normalizeTeamStub's comment: this upsert only ever sets name/logoUrl,
-// so it can't clobber columns (code, short_name, roster) that later team
-// ingestion (#20) fills in.
-async function upsertTeamStub(raw: ApiSportsGameTeam): Promise<string> {
-  const values = normalizeTeamStub(raw);
-  const [row] = await db
-    .insert(team)
-    .values(values)
-    .onConflictDoUpdate({ target: [team.provider, team.providerRef], set: values })
-    .returning({ id: team.id });
-  if (!row) {
-    throw new Error(`Failed to upsert team ${raw.name}`);
-  }
-  return row.id;
 }

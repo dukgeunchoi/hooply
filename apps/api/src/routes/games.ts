@@ -1,15 +1,16 @@
-import { db, game, league, team } from "@hooply/db";
+import { db, game, league } from "@hooply/db";
 import type { GamesResponse } from "@hooply/shared";
 import { makeEnvelope, makeErrorEnvelope } from "@hooply/shared";
 import { and, asc, eq, gte, lt } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import { Router } from "express";
+import { isStale } from "../lib/freshness";
+import { DATE_PARAM_RE } from "../lib/validation";
+import { awayTeam, homeTeam, serializeGameRow } from "./game-serialization";
 
 // While a game is live its data should be at most ~60s old; other statuses
 // (scheduled/final/etc.) don't tick, so only live rows can make the
 // response "delayed" (see docs/api-spec.md).
 const LIVE_STALE_THRESHOLD_MS = 60 * 1000;
-const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isDelayed(
   rows: { status: string; updatedAt: Date }[],
@@ -17,15 +18,11 @@ export function isDelayed(
   thresholdMs = LIVE_STALE_THRESHOLD_MS,
 ): boolean {
   const liveUpdatedAts = rows.filter((r) => r.status === "live").map((r) => r.updatedAt);
-  if (liveUpdatedAts.length === 0) return false;
-  const stalest = Math.min(...liveUpdatedAts.map((d) => d.getTime()));
-  return now.getTime() - stalest > thresholdMs;
+  return isStale(liveUpdatedAts, now, thresholdMs);
 }
 
 export function createGamesRouter(): Router {
   const router = Router();
-  const homeTeam = alias(team, "home_team");
-  const awayTeam = alias(team, "away_team");
 
   router.get("/", async (req, res) => {
     const dateParam = req.query.date;
@@ -80,32 +77,7 @@ export function createGamesRouter(): Router {
         };
         groups.set(r.leagueId, group);
       }
-      group.games.push({
-        id: r.gameId,
-        status: r.status,
-        tipoff_at: r.tipoffAt.toISOString(),
-        period: r.period,
-        clock: r.clock,
-        venue: r.venue,
-        home: {
-          team: {
-            id: r.homeTeamId,
-            name: r.homeTeamName,
-            code: r.homeTeamCode,
-            logo_url: r.homeTeamLogoUrl,
-          },
-          score: r.homeScore,
-        },
-        away: {
-          team: {
-            id: r.awayTeamId,
-            name: r.awayTeamName,
-            code: r.awayTeamCode,
-            logo_url: r.awayTeamLogoUrl,
-          },
-          score: r.awayScore,
-        },
-      });
+      group.games.push(serializeGameRow(r));
     }
 
     res.set("Cache-Control", "public, max-age=300");

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import cron from "node-cron";
 import { ingestGames } from "./ingestion/games";
 import { ingestLeagues } from "./ingestion/leagues";
+import { ingestStandings } from "./ingestion/standings";
 
 const envPath = new URL("../.env", import.meta.url);
 if (existsSync(envPath)) {
@@ -42,6 +43,22 @@ await runGamesIngestion();
 cron.schedule("*/5 * * * *", () => {
   runGamesIngestion().catch((err) => {
     console.error("hooply worker: games ingestion failed", err);
+  });
+});
+
+// Standings don't change mid-game (issue #15) — a few-times-a-day cadence
+// is plenty and keeps this well inside the request budget in
+// docs/provider-decision.md. Runs once at startup too, so a fresh deploy
+// doesn't wait up to 6h for its first standings.
+async function runStandingsIngestion(): Promise<void> {
+  await ingestStandings(apiKey);
+  console.log("hooply worker: standings ingestion complete");
+}
+
+await runStandingsIngestion();
+cron.schedule("0 */6 * * *", () => {
+  runStandingsIngestion().catch((err) => {
+    console.error("hooply worker: standings ingestion failed", err);
   });
 });
 
