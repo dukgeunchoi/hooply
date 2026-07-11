@@ -1,4 +1,29 @@
-import type { ApiSportsGame, ApiSportsGameScoreLine } from "../providers/api-sports/types";
+import type {
+  ApiSportsGame,
+  ApiSportsGameScoreLine,
+  ApiSportsGameTeam,
+} from "../providers/api-sports/types";
+
+export type NormalizedTeamStub = {
+  provider: "api-sports";
+  providerRef: string;
+  name: string;
+  logoUrl: string | null;
+};
+
+// Games ingestion runs before any dedicated team-ingestion phase exists
+// (there's no issue for it before #20), so it seeds minimal team stub rows
+// itself — just enough to satisfy game.home_team_id/away_team_id. Fields
+// beyond name/logo (code, short_name, roster) are filled in later by team
+// ingestion.
+export function normalizeTeamStub(raw: ApiSportsGameTeam): NormalizedTeamStub {
+  return {
+    provider: "api-sports",
+    providerRef: String(raw.id),
+    name: raw.name,
+    logoUrl: raw.logo,
+  };
+}
 
 export type NormalizedGameStatus =
   | "scheduled"

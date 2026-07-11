@@ -1,5 +1,11 @@
+// Uses the device's local calendar day, not UTC — toISOString() would
+// mislabel "Today" for anyone west of UTC during their evening/night, when
+// the UTC calendar date has already rolled over to tomorrow.
 export function toDateParam(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function addDays(date: Date, days: number): Date {

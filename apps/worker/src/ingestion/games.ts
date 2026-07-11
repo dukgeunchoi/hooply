@@ -1,6 +1,6 @@
 import { db, game, league, season, team } from "@hooply/db";
 import { and, eq, inArray } from "drizzle-orm";
-import { normalizeGame } from "../normalize/game";
+import { normalizeGame, normalizeTeamStub } from "../normalize/game";
 import { fetchGamesByDate } from "../providers/api-sports/client";
 import type { ApiSportsGame, ApiSportsGameTeam } from "../providers/api-sports/types";
 import { CURATED_LEAGUES } from "./curated-leagues";
@@ -75,18 +75,11 @@ async function upsertGame(raw: ApiSportsGame, leagueId: string, seasonId: string
     .onConflictDoUpdate({ target: [game.provider, game.providerRef], set: gameValues });
 }
 
-// Games ingestion runs before any dedicated team-ingestion phase exists
-// (there's no issue for it before #20), so it seeds minimal team stub rows
-// itself — just enough to satisfy game.home_team_id/away_team_id. Fields
-// beyond name/logo (code, short_name, roster) are filled in later by team
-// ingestion; this upsert never touches those columns, so it can't clobber them.
+// See normalizeTeamStub's comment: this upsert only ever sets name/logoUrl,
+// so it can't clobber columns (code, short_name, roster) that later team
+// ingestion (#20) fills in.
 async function upsertTeamStub(raw: ApiSportsGameTeam): Promise<string> {
-  const values = {
-    provider: "api-sports" as const,
-    providerRef: String(raw.id),
-    name: raw.name,
-    logoUrl: raw.logo,
-  };
+  const values = normalizeTeamStub(raw);
   const [row] = await db
     .insert(team)
     .values(values)

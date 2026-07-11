@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApiSportsGame } from "../providers/api-sports/types";
-import { normalizeGame } from "./game";
+import { normalizeGame, normalizeTeamStub } from "./game";
 
 function makeRaw(overrides: Partial<ApiSportsGame> = {}): ApiSportsGame {
   return {
@@ -281,5 +281,22 @@ describe("normalizeGame", () => {
         away: [25, 15, 17, 21, 7],
       });
     });
+  });
+});
+
+describe("normalizeTeamStub", () => {
+  it("maps provider fields onto the minimal team stub shape", () => {
+    expect(
+      normalizeTeamStub({ id: 146, name: "Memphis Grizzlies", logo: "https://media/146.png" }),
+    ).toEqual({
+      provider: "api-sports",
+      providerRef: "146",
+      name: "Memphis Grizzlies",
+      logoUrl: "https://media/146.png",
+    });
+  });
+
+  it("maps a missing logo to null", () => {
+    expect(normalizeTeamStub({ id: 1, name: "Team", logo: null }).logoUrl).toBeNull();
   });
 });
