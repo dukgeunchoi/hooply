@@ -1,6 +1,6 @@
-import { db, game, league } from "@hooply/db";
-import type { GamesResponse } from "@hooply/shared";
-import { makeEnvelope, makeErrorEnvelope } from "@hooply/shared";
+import { db, game, league, redis } from "@hooply/db";
+import type { GamesResponse, LiveGame } from "@hooply/shared";
+import { liveGameSnapshotSchema, makeEnvelope, makeErrorEnvelope } from "@hooply/shared";
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { Router } from "express";
 import { isStale } from "../lib/freshness";
@@ -19,6 +19,43 @@ export function isDelayed(
 ): boolean {
   const liveUpdatedAts = rows.filter((r) => r.status === "live").map((r) => r.updatedAt);
   return isStale(liveUpdatedAts, now, thresholdMs);
+}
+
+async function readLiveGames(): Promise<{ games: LiveGame[]; updatedAts: Date[] }> {
+  const keys = await redis.keys("live:game:*");
+  if (keys.length === 0) return { games: [], updatedAts: [] };
+
+  const raw = await redis.mget(...keys);
+  const games: LiveGame[] = [];
+  const updatedAts: Date[] = [];
+  for (const value of raw) {
+    if (!value) continue; // key expired between KEYS and MGET
+
+    // A malformed snapshot is a worker-side bug, not a client error — per
+    // architecture invariant #5 ("provider outage → last-known data, never
+    // an error"), one bad key degrades to "one fewer live game" rather than
+    // 500ing the whole feed.
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(value);
+    } catch {
+      continue;
+    }
+    const result = liveGameSnapshotSchema.safeParse(parsedJson);
+    if (!result.success) continue;
+
+    const snapshot = result.data;
+    games.push({
+      id: snapshot.id,
+      status: snapshot.status,
+      period: snapshot.period,
+      clock: snapshot.clock,
+      home: { score: snapshot.homeScore },
+      away: { score: snapshot.awayScore },
+    });
+    updatedAts.push(new Date(snapshot.updatedAt));
+  }
+  return { games, updatedAts };
 }
 
 export function createGamesRouter(): Router {
@@ -84,6 +121,17 @@ export function createGamesRouter(): Router {
     res.json(
       makeEnvelope(Array.from(groups.values()), {
         delayed: isDelayed(rows, new Date()),
+      }),
+    );
+  });
+
+  router.get("/live", async (_req, res) => {
+    const { games, updatedAts } = await readLiveGames();
+
+    res.set("Cache-Control", "no-store");
+    res.json(
+      makeEnvelope(games, {
+        delayed: isStale(updatedAts, new Date(), LIVE_STALE_THRESHOLD_MS),
       }),
     );
   });

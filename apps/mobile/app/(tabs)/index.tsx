@@ -1,20 +1,49 @@
 import { useNetInfo } from "@react-native-community/netinfo";
+import { useIsFocused } from "expo-router";
 import { useState } from "react";
 import { Image, ScrollView, StyleSheet } from "react-native";
 
 import { DateStrip } from "@/components/DateStrip";
 import { GameRow } from "@/components/GameRow";
 import { Text, View } from "@/components/Themed";
+import { useAppIsActive } from "@/hooks/useAppIsActive";
 import { useGames } from "@/hooks/useGames";
+import { useLiveGames } from "@/hooks/useLiveGames";
 import { toDateParam } from "@/lib/dates";
+import { hasLiveGame, mergeLiveGames } from "@/lib/mergeLiveGames";
 
 export default function ScoresScreen() {
   const [today] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const { isConnected } = useNetInfo();
-  const { data: leagueGroups, isLoading, isError } = useGames(toDateParam(selectedDate));
+
+  // "All polling stops when the screen loses focus (app backgrounded or
+  // navigated away)" (issue #16) — both halves are needed: useIsFocused
+  // alone misses backgrounding while the Scores tab stays active.
+  const isFocused = useIsFocused();
+  const isAppActive = useAppIsActive();
+  const screenIsVisible = isFocused && isAppActive;
+
+  const {
+    data: gamesEnvelope,
+    isLoading,
+    isError,
+  } = useGames(toDateParam(selectedDate), { enabled: screenIsVisible });
+  const leagueGroups = gamesEnvelope?.data;
+
+  // Fast poll only while visible AND the slow poll currently reports a live
+  // game — gate lives in lib/mergeLiveGames.ts so it's driven off the same
+  // "is any game live" rule used to decide whether to merge anything.
+  const { data: liveEnvelope } = useLiveGames(
+    screenIsVisible && (leagueGroups ? hasLiveGame(leagueGroups) : false),
+  );
+
+  const mergedGroups =
+    leagueGroups && liveEnvelope ? mergeLiveGames(leagueGroups, liveEnvelope.data) : leagueGroups;
 
   const showOfflineBanner = isConnected === false && leagueGroups !== undefined;
+  const showDelayedBanner =
+    !showOfflineBanner && Boolean(gamesEnvelope?.meta.delayed || liveEnvelope?.meta.delayed);
 
   return (
     <View style={styles.container}>
@@ -24,23 +53,27 @@ export default function ScoresScreen() {
         <View style={styles.banner}>
           <Text style={styles.bannerText}>You're offline — showing last loaded scores</Text>
         </View>
+      ) : showDelayedBanner ? (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>Live scores may be delayed</Text>
+        </View>
       ) : null}
 
       {isLoading ? (
         <View style={styles.centered}>
           <Text>Loading games…</Text>
         </View>
-      ) : isError && !leagueGroups ? (
+      ) : isError && !mergedGroups ? (
         <View style={styles.centered}>
           <Text>Couldn't load games.</Text>
         </View>
-      ) : leagueGroups && leagueGroups.length === 0 ? (
+      ) : mergedGroups && mergedGroups.length === 0 ? (
         <View style={styles.centered}>
           <Text>No games today</Text>
         </View>
       ) : (
         <ScrollView style={styles.list}>
-          {leagueGroups?.map((group) => (
+          {mergedGroups?.map((group) => (
             <View key={group.league.id} style={styles.leagueGroup}>
               <View style={styles.leagueHeader}>
                 {group.league.logo_url ? (

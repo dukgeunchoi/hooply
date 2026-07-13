@@ -37,7 +37,13 @@ export function GameRow({ game, onPress }: { game: Game; onPress?: () => void })
         {hasScore ? `${game.away.score} ` : ""}
         {teamLabel(game.away.team)}
       </Text>
-      <Text style={styles.status}>{statusLabel(game)}</Text>
+      {game.status === "suspended" ? (
+        <View style={styles.suspendedBadge}>
+          <Text style={styles.suspendedBadgeText}>Suspended</Text>
+        </View>
+      ) : (
+        <Text style={styles.status}>{statusLabel(game)}</Text>
+      )}
     </View>
   );
 
@@ -54,4 +60,11 @@ const styles = StyleSheet.create({
   },
   matchup: { fontSize: 15, fontWeight: "600" },
   status: { fontSize: 13, opacity: 0.6 },
+  suspendedBadge: {
+    backgroundColor: "#f5a623",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  suspendedBadgeText: { fontSize: 12, fontWeight: "700", color: "#000" },
 });

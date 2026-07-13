@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import cron from "node-cron";
 import { ingestGames } from "./ingestion/games";
 import { ingestLeagues } from "./ingestion/leagues";
+import { ingestLiveGames } from "./ingestion/live-games";
 import { ingestStandings } from "./ingestion/standings";
 
 const envPath = new URL("../.env", import.meta.url);
@@ -62,7 +63,14 @@ cron.schedule("0 */6 * * *", () => {
   });
 });
 
-// Live game polling at 10-15s cadence (node-cron) lands in a later
-// ingestion phase (#16). Stay alive so a one-shot exit isn't mistaken for a
-// crash on deploy.
+// 15s tick (issue #16). `ingestLiveGames` itself no-ops (no provider call)
+// outside a live window, so this stays within the request budget in
+// docs/provider-decision.md despite running unconditionally every 15s.
+cron.schedule("*/15 * * * * *", () => {
+  ingestLiveGames(apiKey).catch((err) => {
+    console.error("hooply worker: live game ingestion failed", err);
+  });
+});
+
+// Stay alive so a one-shot exit isn't mistaken for a crash on deploy.
 await new Promise(() => {});
