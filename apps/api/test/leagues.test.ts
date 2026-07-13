@@ -154,4 +154,50 @@ describe("GET /v1/leagues", () => {
 
     expect(res.body.meta.delayed).toBe(false);
   });
+
+  it("breaks ties on priority deterministically instead of leaving order unspecified", async () => {
+    const inserted = await db
+      .insert(league)
+      .values([
+        {
+          provider: "api-sports",
+          providerRef: "120",
+          name: "Euroleague",
+          country: "Europe",
+          logoUrl: null,
+          priority: 0,
+          isActive: true,
+          quarterDurationMins: 10,
+          otDurationMins: 5,
+          updatedAt: new Date(),
+        },
+        {
+          provider: "api-sports",
+          providerRef: "12",
+          name: "NBA",
+          country: "USA",
+          logoUrl: null,
+          priority: 0,
+          isActive: true,
+          quarterDurationMins: 12,
+          otDurationMins: 5,
+          updatedAt: new Date(),
+        },
+      ])
+      .returning();
+
+    const expectedIds = [...inserted].map((l) => l.id).sort();
+
+    const app = createApp();
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => request(app).get("/v1/leagues")),
+    );
+
+    // Same tied priority on both rows: order must be pinned by id (see the
+    // orderBy comment in routes/leagues.ts).
+    for (const res of results) {
+      const parsed = leaguesResponseSchema.parse(res.body);
+      expect(parsed.data.map((l) => l.id)).toEqual(expectedIds);
+    }
+  });
 });

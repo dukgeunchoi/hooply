@@ -43,7 +43,11 @@ export function createLeaguesRouter(): Router {
       .from(league)
       .leftJoin(season, and(eq(season.leagueId, league.id), eq(season.isCurrent, true)))
       .where(eq(league.isActive, true))
-      .orderBy(asc(league.priority));
+      // `priority` isn't unique — tie-break on id so ties can't reorder between
+      // requests (Postgres doesn't guarantee tie order is stable across writes,
+      // and an unstable order can swap rows out from under an in-flight tap on
+      // the mobile Leagues list; see #26).
+      .orderBy(asc(league.priority), asc(league.id));
 
     const data = rows.map((r) => ({
       id: r.id,
