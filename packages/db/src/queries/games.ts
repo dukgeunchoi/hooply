@@ -1,5 +1,5 @@
-import type { Game, GameStatus, LeagueGames } from "@hooply/shared";
-import { LIVE_STALE_THRESHOLD_MS, isStale } from "@hooply/shared";
+import type { Game, GameDetail, GameStatus, LeagueGames } from "@hooply/shared";
+import { LIVE_STALE_THRESHOLD_MS, UUID_RE, isStale } from "@hooply/shared";
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../client";
@@ -154,4 +154,79 @@ export async function getGamesForLeagueRange(
     .orderBy(asc(game.tipoffAt));
 
   return { games: rows.map(serializeGameRow), delayed: isDelayed(rows, new Date()) };
+}
+
+// Defensive against a malformed path-param id: a non-uuid literal would
+// otherwise make Postgres throw, turning a would-be 404 into a 500 (mirrors
+// getLeagueById in queries/leagues.ts).
+export async function getGameById(
+  rawId: string,
+): Promise<{ game: GameDetail; delayed: boolean } | null> {
+  if (!UUID_RE.test(rawId)) return null;
+
+  const [row] = await db
+    .select({
+      gameId: game.id,
+      status: game.status,
+      tipoffAt: game.tipoffAt,
+      period: game.period,
+      clock: game.clock,
+      venue: game.venue,
+      homeScore: game.homeScore,
+      awayScore: game.awayScore,
+      periodScores: game.periodScores,
+      updatedAt: game.updatedAt,
+      leagueId: league.id,
+      leagueName: league.name,
+      homeTeamId: homeTeam.id,
+      homeTeamName: homeTeam.name,
+      homeTeamCode: homeTeam.code,
+      homeTeamLogoUrl: homeTeam.logoUrl,
+      awayTeamId: awayTeam.id,
+      awayTeamName: awayTeam.name,
+      awayTeamCode: awayTeam.code,
+      awayTeamLogoUrl: awayTeam.logoUrl,
+    })
+    .from(game)
+    .innerJoin(league, eq(game.leagueId, league.id))
+    .innerJoin(homeTeam, eq(game.homeTeamId, homeTeam.id))
+    .innerJoin(awayTeam, eq(game.awayTeamId, awayTeam.id))
+    .where(eq(game.id, rawId));
+
+  if (!row) return null;
+
+  const detail: GameDetail = {
+    id: row.gameId,
+    status: row.status,
+    tipoff_at: row.tipoffAt.toISOString(),
+    period: row.period,
+    clock: row.clock,
+    venue: row.venue,
+    league: { id: row.leagueId, name: row.leagueName },
+    home: {
+      team: {
+        id: row.homeTeamId,
+        name: row.homeTeamName,
+        code: row.homeTeamCode,
+        logo_url: row.homeTeamLogoUrl,
+      },
+      score: row.homeScore,
+      period_scores: row.periodScores?.home ?? [],
+    },
+    away: {
+      team: {
+        id: row.awayTeamId,
+        name: row.awayTeamName,
+        code: row.awayTeamCode,
+        logo_url: row.awayTeamLogoUrl,
+      },
+      score: row.awayScore,
+      period_scores: row.periodScores?.away ?? [],
+    },
+  };
+
+  const delayed =
+    row.status === "live" && isStale([row.updatedAt], new Date(), LIVE_STALE_THRESHOLD_MS);
+
+  return { game: detail, delayed };
 }

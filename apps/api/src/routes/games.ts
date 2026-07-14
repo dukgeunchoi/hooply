@@ -10,7 +10,7 @@ import {
 import { Router } from "express";
 import { DATE_PARAM_RE } from "../lib/validation";
 
-type GamesQueries = Pick<typeof queries, "getGamesForDate">;
+type GamesQueries = Pick<typeof queries, "getGamesForDate" | "getGameById">;
 
 async function readLiveGames(): Promise<{ games: LiveGame[]; updatedAts: Date[] }> {
   const keys = await redis.keys("live:game:*");
@@ -71,6 +71,9 @@ export function createGamesRouter(gamesQueries: GamesQueries = queries): Router 
     res.json(makeEnvelope(leagues, { delayed }));
   });
 
+  // Must come before "/:id" — otherwise "/live" would match the ":id"
+  // param route (getGameById("live") would just 404 instead of serving the
+  // live feed).
   router.get("/live", async (_req, res) => {
     const { games, updatedAts } = await readLiveGames();
 
@@ -80,6 +83,21 @@ export function createGamesRouter(gamesQueries: GamesQueries = queries): Router 
         delayed: isStale(updatedAts, new Date(), LIVE_STALE_THRESHOLD_MS),
       }),
     );
+  });
+
+  router.get("/:id", async (req, res) => {
+    const result = await gamesQueries.getGameById(req.params.id);
+    if (!result) {
+      res.status(404).json(makeErrorEnvelope("not_found", "Game not found"));
+      return;
+    }
+
+    // Per docs/api-spec.md's caching table: live game detail is never
+    // cached, everything else (scheduled/final/suspended/etc.) except a
+    // finished game can also change on the next poll, so only `final` gets
+    // the long-lived cache.
+    res.set("Cache-Control", result.game.status === "final" ? "public, max-age=3600" : "no-store");
+    res.json(makeEnvelope(result.game, { delayed: result.delayed }));
   });
 
   return router;

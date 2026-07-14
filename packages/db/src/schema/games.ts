@@ -38,7 +38,7 @@ export const game = pgTable(
     clock: text("clock"),
     homeScore: integer("home_score").notNull().default(0),
     awayScore: integer("away_score").notNull().default(0),
-    periodScores: jsonb("period_scores"),
+    periodScores: jsonb("period_scores").$type<{ home: number[]; away: number[] } | null>(),
     venue: text("venue"),
     statsSyncedAt: timestamp("stats_synced_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

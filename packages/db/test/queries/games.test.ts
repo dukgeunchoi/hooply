@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../src/client";
-import { getGamesForDate } from "../../src/queries/games";
+import { getGameById, getGamesForDate } from "../../src/queries/games";
 import { game, league, season, team } from "../../src/schema/index";
 
 async function resetTables() {
@@ -223,5 +223,153 @@ describe("getGamesForDate", () => {
     const result = await getGamesForDate("2026-07-07");
 
     expect(result.delayed).toBe(false);
+  });
+});
+
+describe("getGameById", () => {
+  beforeEach(resetTables);
+  afterAll(resetTables);
+
+  it("returns full detail including league and per-side period_scores for a live game", async () => {
+    const { nba, nbaSeason, lakers, celtics } = await seedLeagueAndTeams();
+    const [row] = await db
+      .insert(game)
+      .values({
+        provider: "api-sports",
+        providerRef: "g1",
+        seasonId: nbaSeason.id,
+        leagueId: nba.id,
+        homeTeamId: lakers.id,
+        awayTeamId: celtics.id,
+        tipoffAt: new Date("2026-07-07T02:00:00Z"),
+        status: "live",
+        period: 3,
+        clock: "07:42",
+        homeScore: 78,
+        awayScore: 71,
+        periodScores: { home: [28, 25, 25], away: [30, 22, 19] },
+        venue: "Crypto.com Arena",
+        updatedAt: new Date(),
+      })
+      .returning();
+    if (!row) throw new Error("expected game to be inserted");
+
+    const result = await getGameById(row.id);
+
+    expect(result?.game).toEqual({
+      id: row.id,
+      status: "live",
+      tipoff_at: "2026-07-07T02:00:00.000Z",
+      period: 3,
+      clock: "07:42",
+      venue: "Crypto.com Arena",
+      league: { id: nba.id, name: "NBA" },
+      home: {
+        team: { id: lakers.id, name: "Lakers", code: "LAL", logo_url: null },
+        score: 78,
+        period_scores: [28, 25, 25],
+      },
+      away: {
+        team: { id: celtics.id, name: "Celtics", code: "BOS", logo_url: null },
+        score: 71,
+        period_scores: [30, 22, 19],
+      },
+    });
+    expect(result?.delayed).toBe(false);
+  });
+
+  it("defaults period_scores to empty arrays when the column is null (e.g. a scheduled game)", async () => {
+    const { nba, nbaSeason, lakers, celtics } = await seedLeagueAndTeams();
+    const [row] = await db
+      .insert(game)
+      .values({
+        provider: "api-sports",
+        providerRef: "g2",
+        seasonId: nbaSeason.id,
+        leagueId: nba.id,
+        homeTeamId: lakers.id,
+        awayTeamId: celtics.id,
+        tipoffAt: new Date("2026-07-10T02:00:00Z"),
+        status: "scheduled",
+        period: null,
+        clock: null,
+        homeScore: 0,
+        awayScore: 0,
+        periodScores: null,
+        venue: null,
+        updatedAt: new Date(),
+      })
+      .returning();
+    if (!row) throw new Error("expected game to be inserted");
+
+    const result = await getGameById(row.id);
+
+    expect(result?.game.home.period_scores).toEqual([]);
+    expect(result?.game.away.period_scores).toEqual([]);
+  });
+
+  it("returns null for a game id that doesn't exist", async () => {
+    await seedLeagueAndTeams();
+
+    const result = await getGameById("11111111-1111-1111-1111-111111111111");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null for a malformed (non-uuid) id instead of throwing", async () => {
+    const result = await getGameById("not-a-uuid");
+
+    expect(result).toBeNull();
+  });
+
+  it("marks a live game delayed when updatedAt is stale, but not a final game", async () => {
+    const { nba, nbaSeason, lakers, celtics } = await seedLeagueAndTeams();
+    const staleDate = new Date(Date.now() - 90 * 1000);
+
+    const [liveRow] = await db
+      .insert(game)
+      .values({
+        provider: "api-sports",
+        providerRef: "g3",
+        seasonId: nbaSeason.id,
+        leagueId: nba.id,
+        homeTeamId: lakers.id,
+        awayTeamId: celtics.id,
+        tipoffAt: new Date("2026-07-07T02:00:00Z"),
+        status: "live",
+        period: 2,
+        clock: "05:00",
+        homeScore: 40,
+        awayScore: 38,
+        venue: null,
+        updatedAt: staleDate,
+      })
+      .returning();
+    if (!liveRow) throw new Error("expected game to be inserted");
+
+    const liveResult = await getGameById(liveRow.id);
+    expect(liveResult?.delayed).toBe(true);
+
+    const [finalRow] = await db
+      .insert(game)
+      .values({
+        provider: "api-sports",
+        providerRef: "g4",
+        seasonId: nbaSeason.id,
+        leagueId: nba.id,
+        homeTeamId: lakers.id,
+        awayTeamId: celtics.id,
+        tipoffAt: new Date("2026-07-06T02:00:00Z"),
+        status: "final",
+        homeScore: 90,
+        awayScore: 80,
+        venue: null,
+        updatedAt: staleDate,
+      })
+      .returning();
+    if (!finalRow) throw new Error("expected game to be inserted");
+
+    const finalResult = await getGameById(finalRow.id);
+    expect(finalResult?.delayed).toBe(false);
   });
 });

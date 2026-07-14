@@ -2,39 +2,18 @@ import type { Game } from "@hooply/shared";
 import { Pressable, StyleSheet } from "react-native";
 
 import { Text, View } from "@/components/Themed";
-import { formatTipoff } from "@/lib/dates";
-
-function teamLabel(team: Game["home"]["team"]): string {
-  return team.code ?? team.name;
-}
-
-function statusLabel(game: Game): string {
-  switch (game.status) {
-    case "scheduled":
-      return formatTipoff(game.tipoff_at);
-    case "live":
-      return game.period && game.clock ? `Q${game.period} ${game.clock}` : "Live";
-    case "final":
-      return "Final";
-    case "suspended":
-      return "Suspended";
-    case "postponed":
-      return "Postponed";
-    case "cancelled":
-      return "Cancelled";
-  }
-}
+import { hasScore, statusLabel, teamLabel } from "@/lib/gameStatus";
 
 export function GameRow({ game, onPress }: { game: Game; onPress?: () => void }) {
-  const hasScore = game.status !== "scheduled" && game.status !== "postponed";
+  const showScore = hasScore(game);
 
   const row = (
     <View style={styles.row}>
       <Text style={styles.matchup}>
         {teamLabel(game.home.team)}
-        {hasScore ? ` ${game.home.score}` : ""}
+        {showScore ? ` ${game.home.score}` : ""}
         {"  —  "}
-        {hasScore ? `${game.away.score} ` : ""}
+        {showScore ? `${game.away.score} ` : ""}
         {teamLabel(game.away.team)}
       </Text>
       {game.status === "suspended" ? (

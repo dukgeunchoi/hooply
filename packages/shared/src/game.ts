@@ -56,6 +56,36 @@ export const leagueGamesResponseSchema = envelopeSchema(z.array(gameSchema));
 
 export type LeagueGamesResponse = z.infer<typeof leagueGamesResponseSchema>;
 
+// GET /v1/games/{id} — a distinct (larger) shape from `gameSchema`: adds
+// `league` and per-side `period_scores` that the list/schedule views don't
+// need. See docs/api-spec.md for the exact response shape.
+const gameDetailSideSchema = z.object({
+  team: teamRefSchema,
+  score: z.number().int(),
+  period_scores: z.array(z.number().int()),
+});
+
+export const gameDetailSchema = z.object({
+  id: z.string().uuid(),
+  status: gameStatusSchema,
+  tipoff_at: z.string().datetime(),
+  period: z.number().int().nullable(),
+  clock: z.string().nullable(),
+  venue: z.string().nullable(),
+  league: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+  }),
+  home: gameDetailSideSchema,
+  away: gameDetailSideSchema,
+});
+
+export type GameDetail = z.infer<typeof gameDetailSchema>;
+
+export const gameDetailResponseSchema = envelopeSchema(gameDetailSchema);
+
+export type GameDetailResponse = z.infer<typeof gameDetailResponseSchema>;
+
 // The cheap polling target (GET /v1/games/live, Redis-backed) — deliberately
 // a minimal subset of `gameSchema`. The client already has team/tipoff_at/
 // venue from the slow GET /v1/games poll and only needs the fields that
