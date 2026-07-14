@@ -1,33 +1,35 @@
-import { db, league, season, standing } from "@hooply/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { db, standing } from "@hooply/db";
 import { normalizeStandings } from "../normalize/standing";
 import { fetchStandings } from "../providers/api-sports/client";
-import { CURATED_LEAGUES } from "./curated-leagues";
+import type { GameStore } from "./sync-game";
+import { drizzleGameStore, resolveCuratedLeagueSeasons } from "./sync-game";
 import { upsertTeamStub } from "./teams";
 
-export async function ingestStandings(apiKey: string): Promise<void> {
-  const curatedRefs = CURATED_LEAGUES.map((c) => c.providerRef);
+export async function ingestStandings(
+  apiKey: string,
+  store: Pick<GameStore, "findLeagueSeasons"> = drizzleGameStore,
+): Promise<void> {
+  const {
+    leagueIdByProviderRef,
+    currentSeasonIdByLeagueId,
+    leagueProviderRefById,
+    currentSeasonProviderRefByLeagueId,
+  } = await resolveCuratedLeagueSeasons(store);
 
-  const leagueRows = await db
-    .select({ id: league.id, providerRef: league.providerRef })
-    .from(league)
-    .where(inArray(league.providerRef, curatedRefs));
+  for (const leagueId of leagueIdByProviderRef.values()) {
+    const seasonId = currentSeasonIdByLeagueId.get(leagueId);
+    const seasonProviderRef = currentSeasonProviderRefByLeagueId.get(leagueId);
+    const leagueProviderRef = leagueProviderRefById.get(leagueId);
+    if (!seasonId || !seasonProviderRef || !leagueProviderRef) continue; // current season not seeded yet
 
-  for (const leagueRow of leagueRows) {
-    const [currentSeason] = await db
-      .select({ id: season.id, providerRef: season.providerRef })
-      .from(season)
-      .where(and(eq(season.leagueId, leagueRow.id), eq(season.isCurrent, true)));
-    if (!currentSeason?.providerRef) continue; // current season not seeded yet
-
-    const raw = await fetchStandings(leagueRow.providerRef, currentSeason.providerRef, apiKey);
+    const raw = await fetchStandings(leagueProviderRef, seasonProviderRef, apiKey);
     const normalized = normalizeStandings(raw);
 
     for (const row of normalized) {
       const teamId = await upsertTeamStub(row.team);
 
       const standingValues = {
-        seasonId: currentSeason.id,
+        seasonId,
         teamId,
         rank: row.rank,
         played: row.played,
