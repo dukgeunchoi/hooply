@@ -75,3 +75,54 @@ export type ApiSportsStanding = {
   points: ApiSportsStandingPoints;
   form: string | null;
 };
+
+// GET /games/statistics/players?id={gameId} — flat array, one row per
+// player (not grouped by team server-side; team.id ties each row back to
+// the game's home/away team). Per docs/provider-decision.md's spike
+// finding, player-level rows don't reliably carry steals/turnovers/blocks
+// (team-level does) even though the field exists on the schema, so these
+// are nullable here rather than assumed present.
+export type ApiSportsBoxScorePlayerStat = {
+  team: { id: number };
+  player: { id: number; name: string };
+  type: "starters" | "bench";
+  min: string | null;
+  points: number;
+  fgm: number;
+  fga: number;
+  ftm: number;
+  fta: number;
+  tpm: number;
+  tpa: number;
+  offReb: number;
+  defReb: number;
+  totReb: number;
+  assists: number;
+  pFouls: number;
+  steals: number | null;
+  turnovers: number | null;
+  blocks: number | null;
+  plusMinus: string | null;
+};
+
+// GET /games/statistics/teams?id={gameId} — one row per team, full
+// counting stats (unlike the player endpoint, this one does include
+// steals/turnovers/blocks per the spike).
+export type ApiSportsBoxScoreTeamStat = {
+  team: { id: number };
+  points: number;
+  fgm: number;
+  fga: number;
+  ftm: number;
+  fta: number;
+  tpm: number;
+  tpa: number;
+  offReb: number;
+  defReb: number;
+  totReb: number;
+  assists: number;
+  pFouls: number;
+  steals: number;
+  turnovers: number;
+  blocks: number;
+};

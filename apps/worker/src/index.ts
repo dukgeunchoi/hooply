@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import cron from "node-cron";
+import { ingestBoxScores } from "./ingestion/boxscore";
 import { ingestGames } from "./ingestion/games";
 import { ingestLeagues } from "./ingestion/leagues";
 import { ingestLiveGames } from "./ingestion/live-games";
@@ -69,6 +70,17 @@ cron.schedule("0 */6 * * *", () => {
 cron.schedule("*/15 * * * * *", () => {
   ingestLiveGames(apiKey).catch((err) => {
     console.error("hooply worker: live game ingestion failed", err);
+  });
+});
+
+// ~30s tick (issue #18) — box scores change less urgently than live scores,
+// and each tick costs two extra provider calls per in-progress game, so this
+// runs at half live-score's cadence. `ingestBoxScores` itself only fetches
+// for live games plus not-yet-synced final games, so it's a no-op query
+// (still cheap) outside those windows.
+cron.schedule("*/30 * * * * *", () => {
+  ingestBoxScores(apiKey).catch((err) => {
+    console.error("hooply worker: box score ingestion failed", err);
   });
 });
 

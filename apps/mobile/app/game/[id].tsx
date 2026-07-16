@@ -1,13 +1,17 @@
-import type { GameDetail } from "@hooply/shared";
+import type { GameDetail, PlayerBoxScore } from "@hooply/shared";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet } from "react-native";
 
+import { BoxScoreTable } from "@/components/BoxScoreTable";
 import { PeriodScoreStrip } from "@/components/PeriodScoreStrip";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { Text, View } from "@/components/Themed";
 import { useAppIsActive } from "@/hooks/useAppIsActive";
+import type { BoxScoreResult } from "@/hooks/useBoxScore";
+import { useBoxScore } from "@/hooks/useBoxScore";
 import { useGameDetail } from "@/hooks/useGameDetail";
+import { topPerformers } from "@/lib/boxscore";
 import { hasScore, statusLabel, teamLabel } from "@/lib/gameStatus";
 
 type Tab = "summary" | "boxscore" | "plays";
@@ -24,6 +28,14 @@ export default function GameDetailScreen() {
 
   const { data: envelope, isLoading, isError } = useGameDetail(id, { enabled: screenIsVisible });
   const game = envelope?.data;
+
+  // Fetched once whenever the screen is visible (the Summary tab's top
+  // performers need it too, not just Box Score), but only re-polled every
+  // ~30s while the Box Score tab is open and the game is live (issue #18).
+  const boxScoreQuery = useBoxScore(id, {
+    enabled: screenIsVisible,
+    poll: screenIsVisible && tab === "boxscore" && game?.status === "live",
+  });
 
   if (isLoading) {
     return (
@@ -62,7 +74,9 @@ export default function GameDetailScreen() {
       />
 
       {tab === "summary" ? (
-        <SummaryTab game={game} />
+        <SummaryTab game={game} boxScore={boxScoreQuery.data} />
+      ) : tab === "boxscore" ? (
+        <BoxScoreTab result={boxScoreQuery.data} isLoading={boxScoreQuery.isLoading} />
       ) : (
         <View style={styles.centered}>
           <Text>Coming soon</Text>
@@ -113,19 +127,91 @@ function GameHeader({ game }: { game: GameDetail }) {
   );
 }
 
-// Top performers stays a placeholder until #18 ships box score ingestion —
-// there's no player_game_stat data to source it from yet.
-function SummaryTab({ game }: { game: GameDetail }) {
+function PerformerList({ label, players }: { label: string; players: PlayerBoxScore[] }) {
+  return (
+    <View style={styles.performerGroup}>
+      <Text style={styles.performerTeam}>{label}</Text>
+      {players.map((p) => (
+        <View key={p.player.id} style={styles.performerRow}>
+          <Text style={styles.performerName} numberOfLines={1}>
+            {p.player.name}
+          </Text>
+          <Text style={styles.performerPts}>{p.stats.points} PTS</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// Top 3 by points per team (docs/screens.md), sourced from the same box
+// score fetch the Box Score tab uses — 404 ("not yet available") shows the
+// same placeholder it did before #18 shipped ingestion for this data.
+function TopPerformers({ boxScore }: { boxScore: BoxScoreResult | undefined }) {
+  if (!boxScore?.available) {
+    return <Text style={styles.placeholderText}>Not yet available</Text>;
+  }
+  const { team_stats, player_stats } = boxScore.envelope.data;
+  return (
+    <>
+      <PerformerList
+        label={teamLabel(team_stats.home.team)}
+        players={topPerformers(player_stats.home)}
+      />
+      <PerformerList
+        label={teamLabel(team_stats.away.team)}
+        players={topPerformers(player_stats.away)}
+      />
+    </>
+  );
+}
+
+function SummaryTab({
+  game,
+  boxScore,
+}: { game: GameDetail; boxScore: BoxScoreResult | undefined }) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Top performers</Text>
-        <Text style={styles.placeholderText}>Not yet available</Text>
+        <TopPerformers boxScore={boxScore} />
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Venue</Text>
         <Text>{game.venue ?? "TBD"}</Text>
       </View>
+    </ScrollView>
+  );
+}
+
+function BoxScoreTab({
+  result,
+  isLoading,
+}: {
+  result: BoxScoreResult | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading && !result) {
+    return (
+      <View style={styles.centered}>
+        <Text>Loading box score…</Text>
+      </View>
+    );
+  }
+
+  // Not an error state — a game with no stats yet 404s (docs/api-spec.md).
+  if (!result?.available) {
+    return (
+      <View style={styles.centered}>
+        <Text>Stats not yet available</Text>
+      </View>
+    );
+  }
+
+  const { team_stats, player_stats } = result.envelope.data;
+  return (
+    <ScrollView style={styles.container}>
+      <BoxScoreTable teamStats={team_stats.home} players={player_stats.home} />
+      <BoxScoreTable teamStats={team_stats.away} players={player_stats.away} />
     </ScrollView>
   );
 }
@@ -152,4 +238,13 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 16, paddingTop: 20 },
   sectionTitle: { fontSize: 13, fontWeight: "700", opacity: 0.6, marginBottom: 8 },
   placeholderText: { fontSize: 14, opacity: 0.5 },
+  performerGroup: { marginBottom: 12 },
+  performerTeam: { fontSize: 12, fontWeight: "700", opacity: 0.6, marginBottom: 4 },
+  performerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 3,
+  },
+  performerName: { fontSize: 14, flex: 1 },
+  performerPts: { fontSize: 14, fontWeight: "600" },
 });

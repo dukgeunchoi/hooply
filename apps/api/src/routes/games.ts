@@ -10,7 +10,7 @@ import {
 import { Router } from "express";
 import { DATE_PARAM_RE } from "../lib/validation";
 
-type GamesQueries = Pick<typeof queries, "getGamesForDate" | "getGameById">;
+type GamesQueries = Pick<typeof queries, "getGamesForDate" | "getGameById" | "getBoxScore">;
 
 async function readLiveGames(): Promise<{ games: LiveGame[]; updatedAts: Date[] }> {
   const keys = await redis.keys("live:game:*");
@@ -98,6 +98,17 @@ export function createGamesRouter(gamesQueries: GamesQueries = queries): Router 
     // the long-lived cache.
     res.set("Cache-Control", result.game.status === "final" ? "public, max-age=3600" : "no-store");
     res.json(makeEnvelope(result.game, { delayed: result.delayed }));
+  });
+
+  router.get("/:id/boxscore", async (req, res) => {
+    const result = await gamesQueries.getBoxScore(req.params.id);
+    if (!result) {
+      res.status(404).json(makeErrorEnvelope("not_found", "Box score not yet available"));
+      return;
+    }
+
+    res.set("Cache-Control", result.isFinal ? "public, max-age=3600" : "no-store");
+    res.json(makeEnvelope(result.boxScore, { delayed: result.delayed }));
   });
 
   return router;

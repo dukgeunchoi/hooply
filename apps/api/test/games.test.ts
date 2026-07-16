@@ -1,4 +1,4 @@
-import type { GameDetail, LeagueGames } from "@hooply/shared";
+import type { BoxScore, GameDetail, LeagueGames } from "@hooply/shared";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
@@ -14,6 +14,9 @@ function makeApp(
   overrides: {
     getGamesForDate?: (date: string) => Promise<{ leagues: LeagueGames[]; delayed: boolean }>;
     getGameById?: (id: string) => Promise<{ game: GameDetail; delayed: boolean } | null>;
+    getBoxScore?: (
+      id: string,
+    ) => Promise<{ boxScore: BoxScore; delayed: boolean; isFinal: boolean } | null>;
   } = {},
 ) {
   const app = express();
@@ -22,6 +25,7 @@ function makeApp(
     createGamesRouter({
       getGamesForDate: overrides.getGamesForDate ?? notImplemented("getGamesForDate"),
       getGameById: overrides.getGameById ?? notImplemented("getGameById"),
+      getBoxScore: overrides.getBoxScore ?? notImplemented("getBoxScore"),
     }),
   );
   return app;
@@ -170,6 +174,97 @@ describe("GET /v1/games/:id", () => {
     const app = makeApp({ getGameById: async () => ({ game: detail, delayed: true }) });
 
     const res = await request(app).get(`/v1/games/${GAME_ID}`);
+
+    expect(res.body.meta.delayed).toBe(true);
+  });
+});
+
+function makeBoxScore(): BoxScore {
+  const stats = {
+    points: 101,
+    rebounds_off: 10,
+    rebounds_def: 30,
+    rebounds_total: 40,
+    assists: 22,
+    steals: 8,
+    blocks: 5,
+    turnovers: 12,
+    fouls: 18,
+    fg_made: 40,
+    fg_att: 85,
+    three_made: 12,
+    three_att: 32,
+    ft_made: 9,
+    ft_att: 11,
+  };
+  return {
+    team_stats: {
+      home: { team: { id: "t1", name: "Lakers", code: "LAL", logo_url: null }, stats },
+      away: { team: { id: "t2", name: "Celtics", code: "BOS", logo_url: null }, stats },
+    },
+    player_stats: {
+      home: [
+        {
+          player: { id: "p1", name: "Starter One" },
+          is_starter: true,
+          seconds_played: 2112,
+          plus_minus: 12,
+          stats,
+        },
+      ],
+      away: [],
+    },
+  };
+}
+
+// Fast unit test against a fake query module — the real join/serialization
+// behavior of getBoxScore is covered by packages/db/test/queries/boxscore.test.ts
+// against a real Postgres. This route only owns the 404 branching,
+// final-vs-not caching, and envelope wrapping.
+describe("GET /v1/games/:id/boxscore", () => {
+  it("404s with not_found when stats aren't available yet", async () => {
+    const app = makeApp({ getBoxScore: async () => null });
+
+    const res = await request(app).get(`/v1/games/${GAME_ID}/boxscore`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe("not_found");
+  });
+
+  it("passes the id to the query and wraps the result in the envelope, no-store while not final", async () => {
+    const boxScore = makeBoxScore();
+    let receivedId: string | undefined;
+    const app = makeApp({
+      getBoxScore: async (id) => {
+        receivedId = id;
+        return { boxScore, delayed: false, isFinal: false };
+      },
+    });
+
+    const res = await request(app).get(`/v1/games/${GAME_ID}/boxscore`);
+
+    expect(receivedId).toBe(GAME_ID);
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.body.data).toEqual(boxScore);
+    expect(res.body.meta.delayed).toBe(false);
+  });
+
+  it("caches for an hour once the game is final", async () => {
+    const boxScore = makeBoxScore();
+    const app = makeApp({ getBoxScore: async () => ({ boxScore, delayed: false, isFinal: true }) });
+
+    const res = await request(app).get(`/v1/games/${GAME_ID}/boxscore`);
+
+    expect(res.headers["cache-control"]).toBe("public, max-age=3600");
+    expect(res.body.data).toEqual(boxScore);
+  });
+
+  it("surfaces delayed:true from the query result", async () => {
+    const boxScore = makeBoxScore();
+    const app = makeApp({ getBoxScore: async () => ({ boxScore, delayed: true, isFinal: false }) });
+
+    const res = await request(app).get(`/v1/games/${GAME_ID}/boxscore`);
 
     expect(res.body.meta.delayed).toBe(true);
   });

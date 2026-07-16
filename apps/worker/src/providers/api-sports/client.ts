@@ -1,4 +1,10 @@
-import type { ApiSportsGame, ApiSportsLeague, ApiSportsStanding } from "./types";
+import type {
+  ApiSportsBoxScorePlayerStat,
+  ApiSportsBoxScoreTeamStat,
+  ApiSportsGame,
+  ApiSportsLeague,
+  ApiSportsStanding,
+} from "./types";
 
 const BASE_URL = "https://v1.basketball.api-sports.io";
 
@@ -48,4 +54,35 @@ export async function fetchStandings(
   }
   const body = (await res.json()) as { response: ApiSportsStanding[][] };
   return body.response.flat();
+}
+
+// The free tier's `id` (singular) param works for a single game, unlike the
+// plural `ids` (blocked on free tier) — see docs/provider-decision.md's
+// spike findings. Both box score endpoints are scoped the same way.
+export async function fetchBoxScorePlayers(
+  gameProviderRef: string,
+  apiKey: string,
+): Promise<ApiSportsBoxScorePlayerStat[]> {
+  const res = await fetch(`${BASE_URL}/games/statistics/players?id=${gameProviderRef}`, {
+    headers: { "x-apisports-key": apiKey },
+  });
+  if (!res.ok) {
+    throw new Error(`API-Sports request failed: ${res.status} ${res.statusText}`);
+  }
+  const body = (await res.json()) as { response: ApiSportsBoxScorePlayerStat[] };
+  return body.response;
+}
+
+export async function fetchBoxScoreTeams(
+  gameProviderRef: string,
+  apiKey: string,
+): Promise<ApiSportsBoxScoreTeamStat[]> {
+  const res = await fetch(`${BASE_URL}/games/statistics/teams?id=${gameProviderRef}`, {
+    headers: { "x-apisports-key": apiKey },
+  });
+  if (!res.ok) {
+    throw new Error(`API-Sports request failed: ${res.status} ${res.statusText}`);
+  }
+  const body = (await res.json()) as { response: ApiSportsBoxScoreTeamStat[] };
+  return body.response;
 }

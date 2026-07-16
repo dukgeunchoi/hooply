@@ -1,9 +1,23 @@
-import type { Game, GameDetail, GameStatus, LeagueGames } from "@hooply/shared";
-import { LIVE_STALE_THRESHOLD_MS, UUID_RE, isStale } from "@hooply/shared";
-import { and, asc, eq, gte, lt } from "drizzle-orm";
+import type {
+  BoxScore,
+  BoxScoreStats,
+  Game,
+  GameDetail,
+  GameStatus,
+  LeagueGames,
+  PlayerBoxScore,
+  TeamBoxScore,
+} from "@hooply/shared";
+import {
+  BOXSCORE_STALE_THRESHOLD_MS,
+  LIVE_STALE_THRESHOLD_MS,
+  UUID_RE,
+  isStale,
+} from "@hooply/shared";
+import { and, asc, desc, eq, gte, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../client";
-import { game, league, team } from "../schema/index";
+import { game, league, player, playerGameStat, team, teamGameStat } from "../schema/index";
 
 const homeTeam = alias(team, "home_team");
 const awayTeam = alias(team, "away_team");
@@ -229,4 +243,173 @@ export async function getGameById(
     row.status === "live" && isStale([row.updatedAt], new Date(), LIVE_STALE_THRESHOLD_MS);
 
   return { game: detail, delayed };
+}
+
+function serializeBoxScoreStats(r: {
+  points: number;
+  reboundsOff: number;
+  reboundsDef: number;
+  assists: number;
+  steals: number;
+  blocks: number;
+  turnovers: number;
+  fouls: number;
+  fgMade: number;
+  fgAtt: number;
+  threeMade: number;
+  threeAtt: number;
+  ftMade: number;
+  ftAtt: number;
+}): BoxScoreStats {
+  return {
+    points: r.points,
+    rebounds_off: r.reboundsOff,
+    rebounds_def: r.reboundsDef,
+    rebounds_total: r.reboundsOff + r.reboundsDef,
+    assists: r.assists,
+    steals: r.steals,
+    blocks: r.blocks,
+    turnovers: r.turnovers,
+    fouls: r.fouls,
+    fg_made: r.fgMade,
+    fg_att: r.fgAtt,
+    three_made: r.threeMade,
+    three_att: r.threeAtt,
+    ft_made: r.ftMade,
+    ft_att: r.ftAtt,
+  };
+}
+
+function serializeTeamBoxScore(
+  teamId: string,
+  r: { teamName: string; teamCode: string | null; teamLogoUrl: string | null } & Parameters<
+    typeof serializeBoxScoreStats
+  >[0],
+): TeamBoxScore {
+  return {
+    team: { id: teamId, name: r.teamName, code: r.teamCode, logo_url: r.teamLogoUrl },
+    stats: serializeBoxScoreStats(r),
+  };
+}
+
+function serializePlayerBoxScoreRows(
+  rows: readonly ({
+    playerId: string;
+    playerName: string;
+    teamId: string;
+    isStarter: boolean;
+    secondsPlayed: number;
+    plusMinus: number | null;
+  } & Parameters<typeof serializeBoxScoreStats>[0])[],
+  teamId: string,
+): PlayerBoxScore[] {
+  return rows
+    .filter((r) => r.teamId === teamId)
+    .map((r) => ({
+      player: { id: r.playerId, name: r.playerName },
+      is_starter: r.isStarter,
+      seconds_played: r.secondsPlayed,
+      plus_minus: r.plusMinus,
+      stats: serializeBoxScoreStats(r),
+    }));
+}
+
+// Not found until `game.stats_synced_at` is set (see docs/api-spec.md — the
+// client treats a 404 here as "not yet available", not an error). Also 404s
+// if only one side's team_game_stat row exists yet — the ingestion job
+// always writes both teams in the same pass, so a lone row means a sync is
+// still in flight rather than a real "half a box score" state worth showing.
+export async function getBoxScore(
+  rawId: string,
+): Promise<{ boxScore: BoxScore; delayed: boolean; isFinal: boolean } | null> {
+  if (!UUID_RE.test(rawId)) return null;
+
+  const [gameRow] = await db
+    .select({
+      id: game.id,
+      status: game.status,
+      statsSyncedAt: game.statsSyncedAt,
+      homeTeamId: game.homeTeamId,
+      awayTeamId: game.awayTeamId,
+    })
+    .from(game)
+    .where(eq(game.id, rawId));
+
+  if (!gameRow || !gameRow.statsSyncedAt) return null;
+
+  const teamStatRows = await db
+    .select({
+      teamId: teamGameStat.teamId,
+      points: teamGameStat.points,
+      reboundsOff: teamGameStat.reboundsOff,
+      reboundsDef: teamGameStat.reboundsDef,
+      assists: teamGameStat.assists,
+      steals: teamGameStat.steals,
+      blocks: teamGameStat.blocks,
+      turnovers: teamGameStat.turnovers,
+      fouls: teamGameStat.fouls,
+      fgMade: teamGameStat.fgMade,
+      fgAtt: teamGameStat.fgAtt,
+      threeMade: teamGameStat.threeMade,
+      threeAtt: teamGameStat.threeAtt,
+      ftMade: teamGameStat.ftMade,
+      ftAtt: teamGameStat.ftAtt,
+      teamName: team.name,
+      teamCode: team.code,
+      teamLogoUrl: team.logoUrl,
+    })
+    .from(teamGameStat)
+    .innerJoin(team, eq(teamGameStat.teamId, team.id))
+    .where(eq(teamGameStat.gameId, rawId));
+
+  const homeTeamStatRow = teamStatRows.find((r) => r.teamId === gameRow.homeTeamId);
+  const awayTeamStatRow = teamStatRows.find((r) => r.teamId === gameRow.awayTeamId);
+  if (!homeTeamStatRow || !awayTeamStatRow) return null;
+
+  const playerStatRows = await db
+    .select({
+      playerId: playerGameStat.playerId,
+      teamId: playerGameStat.teamId,
+      secondsPlayed: playerGameStat.secondsPlayed,
+      points: playerGameStat.points,
+      assists: playerGameStat.assists,
+      reboundsOff: playerGameStat.reboundsOff,
+      reboundsDef: playerGameStat.reboundsDef,
+      steals: playerGameStat.steals,
+      blocks: playerGameStat.blocks,
+      turnovers: playerGameStat.turnovers,
+      fouls: playerGameStat.fouls,
+      fgMade: playerGameStat.fgMade,
+      fgAtt: playerGameStat.fgAtt,
+      threeMade: playerGameStat.threeMade,
+      threeAtt: playerGameStat.threeAtt,
+      ftMade: playerGameStat.ftMade,
+      ftAtt: playerGameStat.ftAtt,
+      plusMinus: playerGameStat.plusMinus,
+      isStarter: playerGameStat.isStarter,
+      playerName: player.fullName,
+    })
+    .from(playerGameStat)
+    .innerJoin(player, eq(playerGameStat.playerId, player.id))
+    .where(eq(playerGameStat.gameId, rawId))
+    // Starters first (issue #18 acceptance criteria), highest scorer first
+    // within each group.
+    .orderBy(desc(playerGameStat.isStarter), desc(playerGameStat.points));
+
+  const boxScore: BoxScore = {
+    team_stats: {
+      home: serializeTeamBoxScore(gameRow.homeTeamId, homeTeamStatRow),
+      away: serializeTeamBoxScore(gameRow.awayTeamId, awayTeamStatRow),
+    },
+    player_stats: {
+      home: serializePlayerBoxScoreRows(playerStatRows, gameRow.homeTeamId),
+      away: serializePlayerBoxScoreRows(playerStatRows, gameRow.awayTeamId),
+    },
+  };
+
+  const delayed =
+    gameRow.status === "live" &&
+    isStale([gameRow.statsSyncedAt], new Date(), BOXSCORE_STALE_THRESHOLD_MS);
+
+  return { boxScore, delayed, isFinal: gameRow.status === "final" };
 }

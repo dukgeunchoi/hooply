@@ -23,3 +23,9 @@ export const LEAGUE_STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // job well before a full day goes by, without false-positiving on the
 // normal gap between runs.
 export const STANDINGS_STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000;
+
+// Box score ingestion polls live games every ~30s (issue #18) — 4x that
+// cadence, mirroring how LIVE_STALE_THRESHOLD_MS relates to the 15s live
+// game poll above, so a stuck box score job surfaces before a viewer would
+// notice stats aren't moving.
+export const BOXSCORE_STALE_THRESHOLD_MS = 2 * 60 * 1000;
