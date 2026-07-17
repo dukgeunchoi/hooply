@@ -13,6 +13,7 @@ import { useBoxScore } from "@/hooks/useBoxScore";
 import { useGameDetail } from "@/hooks/useGameDetail";
 import { topPerformers } from "@/lib/boxscore";
 import { hasScore, statusLabel, teamLabel } from "@/lib/gameStatus";
+import { teamHref } from "@/lib/links";
 
 type Tab = "summary" | "boxscore" | "plays";
 
@@ -88,15 +89,7 @@ export default function GameDetailScreen() {
 
 function TeamColumn({ side }: { side: GameDetail["home"] }) {
   return (
-    <Pressable
-      style={styles.teamColumn}
-      onPress={() =>
-        router.push({
-          pathname: "/team/[id]",
-          params: { id: side.team.id, name: side.team.name },
-        })
-      }
-    >
+    <Pressable style={styles.teamColumn} onPress={() => router.push(teamHref(side.team))}>
       {side.team.logo_url ? (
         <Image source={{ uri: side.team.logo_url }} style={styles.teamLogo} />
       ) : (

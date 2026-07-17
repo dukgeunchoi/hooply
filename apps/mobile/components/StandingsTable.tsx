@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Image, Pressable, StyleSheet } from "react-native";
 
 import { Text, View } from "@/components/Themed";
+import { teamHref } from "@/lib/links";
 
 function formatPct(pct: number): string {
   return pct.toFixed(3).replace(/^0\./, ".");
@@ -10,12 +11,7 @@ function formatPct(pct: number): string {
 
 function StandingRowView({ row }: { row: StandingRow }) {
   return (
-    <Pressable
-      style={styles.row}
-      onPress={() =>
-        router.push({ pathname: "/team/[id]", params: { id: row.team.id, name: row.team.name } })
-      }
-    >
+    <Pressable style={styles.row} onPress={() => router.push(teamHref(row.team))}>
       <Text style={[styles.cell, styles.rankCell]}>{row.rank}</Text>
       <View style={styles.teamCell}>
         {row.team.logo_url ? (

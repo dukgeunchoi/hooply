@@ -1,5 +1,7 @@
 export * from "./boxscore";
+export * from "./device";
 export * from "./envelope";
+export * from "./favorite";
 export * from "./freshness";
 export * from "./game";
 export * from "./league";

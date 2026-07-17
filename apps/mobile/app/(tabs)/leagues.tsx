@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet } from "react-native";
 
 import { Text, View } from "@/components/Themed";
 import { useLeagues } from "@/hooks/useLeagues";
+import { leagueHref } from "@/lib/links";
 
 export default function LeaguesScreen() {
   const { data: leagues, isLoading, isError } = useLeagues();
@@ -26,13 +27,7 @@ export default function LeaguesScreen() {
   return (
     <ScrollView style={styles.container}>
       {leagues.map((item) => (
-        <Pressable
-          key={item.id}
-          style={styles.row}
-          onPress={() =>
-            router.push({ pathname: "/league/[id]", params: { id: item.id, name: item.name } })
-          }
-        >
+        <Pressable key={item.id} style={styles.row} onPress={() => router.push(leagueHref(item))}>
           {item.logo_url ? (
             <Image source={{ uri: item.logo_url }} style={styles.logo} />
           ) : (

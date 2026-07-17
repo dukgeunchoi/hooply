@@ -1,6 +1,7 @@
 import { makeEnvelope } from "@hooply/shared";
 import cors from "cors";
 import express, { type Express } from "express";
+import { createDevicesRouter } from "./routes/devices";
 import { createGamesRouter } from "./routes/games";
 import { createLeaguesRouter } from "./routes/leagues";
 
@@ -17,6 +18,7 @@ export function createApp(): Express {
 
   app.use("/v1/leagues", createLeaguesRouter());
   app.use("/v1/games", createGamesRouter());
+  app.use("/v1/devices", createDevicesRouter());
 
   return app;
 }

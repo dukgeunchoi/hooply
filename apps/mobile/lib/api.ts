@@ -22,3 +22,36 @@ export async function apiGet<T extends z.ZodTypeAny>(path: string, schema: T): P
   }
   return schema.parse(await res.json());
 }
+
+async function apiSend<T extends z.ZodTypeAny>(
+  method: "POST" | "PUT",
+  path: string,
+  body: unknown,
+  schema: T,
+): Promise<z.infer<T>> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, res.statusText);
+  }
+  return schema.parse(await res.json());
+}
+
+export function apiPost<T extends z.ZodTypeAny>(
+  path: string,
+  body: unknown,
+  schema: T,
+): Promise<z.infer<T>> {
+  return apiSend("POST", path, body, schema);
+}
+
+export function apiPut<T extends z.ZodTypeAny>(
+  path: string,
+  body: unknown,
+  schema: T,
+): Promise<z.infer<T>> {
+  return apiSend("PUT", path, body, schema);
+}

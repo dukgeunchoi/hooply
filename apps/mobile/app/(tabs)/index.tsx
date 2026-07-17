@@ -10,6 +10,8 @@ import { useAppIsActive } from "@/hooks/useAppIsActive";
 import { useGames } from "@/hooks/useGames";
 import { useLiveGames } from "@/hooks/useLiveGames";
 import { toDateParam } from "@/lib/dates";
+import { orderByFavorites } from "@/lib/favoritesOrder";
+import { useFavoritesStore } from "@/lib/favoritesStore";
 import { hasLiveGame, mergeLiveGames } from "@/lib/mergeLiveGames";
 
 export default function ScoresScreen() {
@@ -41,6 +43,9 @@ export default function ScoresScreen() {
   const mergedGroups =
     leagueGroups && liveEnvelope ? mergeLiveGames(leagueGroups, liveEnvelope.data) : leagueGroups;
 
+  const favorites = useFavoritesStore((s) => s.favorites);
+  const orderedGroups = mergedGroups ? orderByFavorites(mergedGroups, favorites) : mergedGroups;
+
   const showOfflineBanner = isConnected === false && leagueGroups !== undefined;
   const showDelayedBanner =
     !showOfflineBanner && Boolean(gamesEnvelope?.meta.delayed || liveEnvelope?.meta.delayed);
@@ -63,17 +68,17 @@ export default function ScoresScreen() {
         <View style={styles.centered}>
           <Text>Loading games…</Text>
         </View>
-      ) : isError && !mergedGroups ? (
+      ) : isError && !orderedGroups ? (
         <View style={styles.centered}>
           <Text>Couldn't load games.</Text>
         </View>
-      ) : mergedGroups && mergedGroups.length === 0 ? (
+      ) : orderedGroups && orderedGroups.length === 0 ? (
         <View style={styles.centered}>
           <Text>No games today</Text>
         </View>
       ) : (
         <ScrollView style={styles.list}>
-          {mergedGroups?.map((group) => (
+          {orderedGroups?.map((group) => (
             <View key={group.league.id} style={styles.leagueGroup}>
               <View style={styles.leagueHeader}>
                 {group.league.logo_url ? (

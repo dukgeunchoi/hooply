@@ -1,7 +1,8 @@
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 
+import { FollowButton } from "@/components/FollowButton";
 import { MatchesList } from "@/components/MatchesList";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { StandingsTable } from "@/components/StandingsTable";
@@ -11,18 +12,19 @@ import { useLeagueStandings } from "@/hooks/useLeagueStandings";
 type Tab = "matches" | "standings";
 
 export default function LeagueHubScreen() {
-  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const { id, name, logo } = useLocalSearchParams<{ id: string; name?: string; logo?: string }>();
   const [tab, setTab] = useState<Tab>("matches");
-  // Wires to the favorites model in #21 — local-only toggle for now.
-  const [following, setFollowing] = useState(false);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{name ?? "League"}</Text>
-        <Pressable style={styles.followButton} onPress={() => setFollowing((f) => !f)}>
-          <Text style={styles.followButtonText}>{following ? "Following" : "Follow"}</Text>
-        </Pressable>
+        <FollowButton
+          entityType="league"
+          entityId={id}
+          name={name ?? "League"}
+          logoUrl={logo ?? null}
+        />
       </View>
 
       <SegmentedControl
@@ -82,12 +84,4 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   title: { fontSize: 20, fontWeight: "bold" },
-  followButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#2f95dc",
-  },
-  followButtonText: { fontSize: 13, fontWeight: "600", color: "#2f95dc" },
 });
