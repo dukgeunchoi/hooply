@@ -22,10 +22,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     env:
       # Matches apps/api/vitest.config.ts, which points integration tests at
       # a dedicated database so they never collide with real ingested data.
       DATABASE_URL: postgres://hooply:hooply@localhost:5432/hooply_test
+      # Matches apps/api/vitest.config.ts's REDIS_URL (db index 1, same
+      # reasoning as DATABASE_URL above).
+      REDIS_URL: redis://localhost:6379/1
     steps:
       - uses: actions/checkout@v4
 
