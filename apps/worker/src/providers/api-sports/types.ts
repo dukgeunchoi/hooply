@@ -105,6 +105,25 @@ export type ApiSportsBoxScorePlayerStat = {
   plusMinus: string | null;
 };
 
+// GET /players?team={teamId}&season={season} — a team's full roster for
+// that season (issue #20). Confirmed live against the free tier (not
+// covered by docs/provider-decision.md's spike, which only probed
+// provider_ref stability via this same endpoint): height/weight/photo do
+// not exist anywhere on this response — API-Basketball's player entity is
+// limited to identity + jersey/position/age/country. data-model.md's
+// height_cm/weight_kg/photo_url stay null for every api-sports player until
+// (unless) a richer provider is adopted. `season` matches whatever format
+// that league's season.provider_ref uses (a bare year for Euroleague/ACB,
+// e.g. "2023"; a hyphenated span for NBA, e.g. "2023-2024").
+export type ApiSportsPlayer = {
+  id: number;
+  name: string;
+  number: string | null;
+  country: string | null;
+  position: string | null;
+  age: number | null;
+};
+
 // GET /games/statistics/teams?id={gameId} — one row per team, full
 // counting stats (unlike the player endpoint, this one does include
 // steals/turnovers/blocks per the spike).

@@ -3,6 +3,7 @@ import type {
   ApiSportsBoxScoreTeamStat,
   ApiSportsGame,
   ApiSportsLeague,
+  ApiSportsPlayer,
   ApiSportsStanding,
 } from "./types";
 
@@ -70,6 +71,25 @@ export async function fetchBoxScorePlayers(
     throw new Error(`API-Sports request failed: ${res.status} ${res.statusText}`);
   }
   const body = (await res.json()) as { response: ApiSportsBoxScorePlayerStat[] };
+  return body.response;
+}
+
+// Team roster for a season (issue #20's player ingestion). `season` must be
+// in whatever format that league's season.provider_ref uses — see the
+// comment on ApiSportsPlayer.
+export async function fetchPlayers(
+  teamProviderRef: string,
+  seasonProviderRef: string,
+  apiKey: string,
+): Promise<ApiSportsPlayer[]> {
+  const res = await fetch(
+    `${BASE_URL}/players?team=${teamProviderRef}&season=${seasonProviderRef}`,
+    { headers: { "x-apisports-key": apiKey } },
+  );
+  if (!res.ok) {
+    throw new Error(`API-Sports request failed: ${res.status} ${res.statusText}`);
+  }
+  const body = (await res.json()) as { response: ApiSportsPlayer[] };
   return body.response;
 }
 

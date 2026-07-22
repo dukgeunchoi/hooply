@@ -4,6 +4,8 @@ import express, { type Express } from "express";
 import { createDevicesRouter } from "./routes/devices";
 import { createGamesRouter } from "./routes/games";
 import { createLeaguesRouter } from "./routes/leagues";
+import { createPlayersRouter } from "./routes/players";
+import { createTeamsRouter } from "./routes/teams";
 
 export function createApp(): Express {
   const app = express();
@@ -18,6 +20,8 @@ export function createApp(): Express {
 
   app.use("/v1/leagues", createLeaguesRouter());
   app.use("/v1/games", createGamesRouter());
+  app.use("/v1/teams", createTeamsRouter());
+  app.use("/v1/players", createPlayersRouter());
   app.use("/v1/devices", createDevicesRouter());
 
   return app;

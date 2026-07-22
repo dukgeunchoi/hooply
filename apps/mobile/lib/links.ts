@@ -17,3 +17,7 @@ export function leagueHref(league: { id: string; name: string; logo_url: string 
     params: { id: league.id, name: league.name, logo: league.logo_url ?? undefined },
   };
 }
+
+export function playerHref(player: { id: string; full_name: string }): Href {
+  return { pathname: "/player/[id]", params: { id: player.id, name: player.full_name } };
+}

@@ -5,5 +5,7 @@ export * from "./favorite";
 export * from "./freshness";
 export * from "./game";
 export * from "./league";
+export * from "./player";
 export * from "./standing";
+export * from "./team";
 export * from "./validation";

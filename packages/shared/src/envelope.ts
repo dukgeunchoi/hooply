@@ -7,6 +7,9 @@ export type ErrorCode = z.infer<typeof errorCodeSchema>;
 export const metaSchema = z.object({
   generated_at: z.string().datetime(),
   delayed: z.boolean(),
+  // Cursor-paginated endpoints only (docs/api-spec.md's "?cursor=&limit= ->
+  // meta.next_cursor" convention) — absent entirely on every other route.
+  next_cursor: z.string().nullable().optional(),
 });
 
 export type Meta = z.infer<typeof metaSchema>;
@@ -32,12 +35,16 @@ export const errorEnvelopeSchema = z.object({
 
 export type ErrorEnvelope = z.infer<typeof errorEnvelopeSchema>;
 
-export function makeEnvelope<T>(data: T, opts: { delayed?: boolean } = {}): Envelope<T> {
+export function makeEnvelope<T>(
+  data: T,
+  opts: { delayed?: boolean; next_cursor?: string | null } = {},
+): Envelope<T> {
   return {
     data,
     meta: {
       generated_at: new Date().toISOString(),
       delayed: opts.delayed ?? false,
+      ...(opts.next_cursor !== undefined ? { next_cursor: opts.next_cursor } : {}),
     },
   };
 }

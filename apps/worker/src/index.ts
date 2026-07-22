@@ -4,6 +4,7 @@ import { ingestBoxScores } from "./ingestion/boxscore";
 import { ingestGames } from "./ingestion/games";
 import { ingestLeagues } from "./ingestion/leagues";
 import { ingestLiveGames } from "./ingestion/live-games";
+import { ingestPlayers } from "./ingestion/players";
 import { ingestStandings } from "./ingestion/standings";
 
 const envPath = new URL("../.env", import.meta.url);
@@ -57,10 +58,22 @@ async function runStandingsIngestion(): Promise<void> {
   console.log("hooply worker: standings ingestion complete");
 }
 
+// Player ingestion (issue #20) runs alongside standings on this same slower
+// cadence — rosters change even less often than standings, and this stays
+// well inside the request budget in docs/provider-decision.md.
+async function runPlayersIngestion(): Promise<void> {
+  await ingestPlayers(apiKey);
+  console.log("hooply worker: players ingestion complete");
+}
+
 await runStandingsIngestion();
+await runPlayersIngestion();
 cron.schedule("0 */6 * * *", () => {
   runStandingsIngestion().catch((err) => {
     console.error("hooply worker: standings ingestion failed", err);
+  });
+  runPlayersIngestion().catch((err) => {
+    console.error("hooply worker: players ingestion failed", err);
   });
 });
 

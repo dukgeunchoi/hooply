@@ -22,7 +22,10 @@ import { game, league, player, playerGameStat, team, teamGameStat } from "../sch
 const homeTeam = alias(team, "home_team");
 const awayTeam = alias(team, "away_team");
 
-type GameRow = {
+// Exported so queries/teams.ts (GET /v1/teams/{id}/games) can reuse the
+// exact same row shape/serialization instead of re-deriving `Game`'s
+// home/away nesting a second time.
+export type GameRow = {
   gameId: string;
   status: GameStatus;
   tipoffAt: Date;
@@ -41,7 +44,7 @@ type GameRow = {
   awayTeamLogoUrl: string | null;
 };
 
-function serializeGameRow(r: GameRow): Game {
+export function serializeGameRow(r: GameRow): Game {
   return {
     id: r.gameId,
     status: r.status,
